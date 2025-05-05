@@ -6,8 +6,8 @@ import time
 import sys
 import os
 
-# Add the parent directory to sys.path to import the module
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add the src directory to sys.path to import the module
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
 from led_driver_rs485 import LEDController
 
@@ -106,7 +106,7 @@ class TestLEDController(unittest.TestCase):
 
     @patch('serial.Serial')
     @patch('time.sleep')  # Mock sleep to speed up tests
-    @patch('led_driver_rs485.playsound')  # Mock playsound to avoid actual sound
+    @patch('led_driver_rs485.controller.playsound')  # Mock playsound to avoid actual sound
     def test_countdown(self, mock_playsound, mock_sleep, mock_serial):
         """Test the countdown method."""
         # Setup the mock

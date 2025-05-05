@@ -4,8 +4,6 @@ import struct
 import time
 from playsound import playsound
 
-from playsound import playsound
-
 
 class LEDController:
     def __init__(self, port, baudrate=57600, timeout=1):
@@ -102,9 +100,3 @@ class LEDController:
         if port_index >= len(ports):
             raise IndexError(f"Port index {port_index} out of range (0-{len(ports)-1})")
         return cls(port=ports[port_index].device, baudrate=baudrate, timeout=timeout)
-
-
-if __name__ == "__main__":
-    led = LEDController.from_port_list(port_index=0, baudrate=9600)
-    led.countdown(address=0x01, start_seconds=24, play_sound=True)
-    led.close()
