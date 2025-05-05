@@ -1,3 +1,5 @@
 PyObjC
 playsound
 pyserial
+pytest
+pytest-mock
