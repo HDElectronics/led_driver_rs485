@@ -1,5 +1,6 @@
-PyObjC
-playsound
-pyserial
-pytest
-pytest-mock
+PyObjC==12.3.1
+playsound==1.3.0
+pyserial==3.5
+pytest==8.1.1
+pytest-mock==3.11.1
+flask==3.1.0
