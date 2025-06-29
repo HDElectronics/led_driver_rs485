@@ -27,7 +27,7 @@ def list_available_ports():
         print(f"  {i}: {port.device} - {port.description}")
 
 
-def run_countdown(port_index, seconds, baudrate=9600):
+def run_countdown(port_index, seconds, baudrate=9600, play_sound=False):
     """Run a countdown on the specified port."""
     try:
         # Create a controller instance
@@ -35,7 +35,7 @@ def run_countdown(port_index, seconds, baudrate=9600):
         print(f"Connected to port: {led.ser.port}")
         
         # Run the countdown
-        led.countdown(address=0x01, start_seconds=seconds, play_sound=True)
+        led.countdown(address=0x01, start_seconds=seconds, play_sound=play_sound)
         
         # Close the connection
         led.close()
@@ -60,13 +60,15 @@ def main():
                                 help='Countdown duration in seconds (default: 10)')
     countdown_parser.add_argument('--baudrate', '-b', type=int, default=9600, 
                                 help='Baudrate for serial communication (default: 9600)')
+    countdown_parser.add_argument('--play-sound', '-ps', action='store_true', 
+                                help='Play sound when countdown ends (default: False)')
     
     args = parser.parse_args()
     
     if args.command == 'list':
         list_available_ports()
     elif args.command == 'countdown':
-        run_countdown(args.port, args.seconds, args.baudrate)
+        run_countdown(args.port, args.seconds, args.baudrate, args.play_sound)
     else:
         parser.print_help()
 
