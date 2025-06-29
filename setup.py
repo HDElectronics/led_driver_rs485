@@ -8,7 +8,6 @@ setup(
     install_requires=[
         "pyserial",
         "playsound",
-        "PyObjC",
     ],
     python_requires=">=3.6",
     entry_points={

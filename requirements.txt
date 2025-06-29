@@ -1,4 +1,3 @@
-PyObjC
 playsound
 pyserial
 pytest
