@@ -1,1 +1,6 @@
 .vscode/launch.json
+# ignore all __pycache__ directories
+__pycache__/
+**/__pycache__/
+# ignore all .pyc files
+*.pyc
