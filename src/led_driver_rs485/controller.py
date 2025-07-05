@@ -33,7 +33,8 @@ class LEDController:
         """Build full packet with CRC."""
         packet = bytearray()
         packet.append(0xFE)
-        length = 1 + 1 + 1 + 1 + len(payload) + 1  # addr + cmd + flags + format + data + end
+        length = 1 + 1 + 1 + 1 + len(payload) + 1
+        # addr + cmd + flags + format + data + end
         packet.append(length)
         packet.append(address)
         packet.append(command)
@@ -63,7 +64,8 @@ class LEDController:
         return self.send_command(address, 0x01, payload)
 
     def countdown(self, address, start_seconds: int, play_sound=True):
-        """Count down from start_seconds to 0, updating two 7-segment digits each second."""
+        """Count down from start_seconds to 0,
+        updating two 7-segment digits each second."""
         for t in range(start_seconds, -1, -1):
             tens = (t // 10) % 10
             units = t % 10
@@ -89,14 +91,25 @@ class LEDController:
     def scan_ports(usb_only=True):
         ports = list(serial.tools.list_ports.comports())
         if usb_only:
-            ports = [p for p in ports if "USB" in p.description or "usb" in p.hwid.lower()]
+            ports = [
+                p for p in ports
+                if "USB" in p.description or "usb" in p.hwid.lower()
+            ]
         return ports
 
     @classmethod
-    def from_port_list(cls, port_index=0, baudrate=57600, timeout=1, usb_only=True):
+    def from_port_list(
+        cls, port_index=0, baudrate=57600, timeout=1, usb_only=True
+    ):
         ports = cls.scan_ports(usb_only)
         if not ports:
             raise RuntimeError("No serial ports found")
         if port_index >= len(ports):
-            raise IndexError(f"Port index {port_index} out of range (0-{len(ports)-1})")
-        return cls(port=ports[port_index].device, baudrate=baudrate, timeout=timeout)
+            raise IndexError(
+                f"Port index {port_index} out of range (0-{len(ports)-1})"
+            )
+        return cls(
+            port=ports[port_index].device,
+            baudrate=baudrate,
+            timeout=timeout
+        )
