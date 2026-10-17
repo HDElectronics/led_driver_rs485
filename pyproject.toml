@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "led_driver_rs485"
+version = "0.2.0"
+description = "Driver, CLI and web UI for RS485 7-segment LED displays"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = ["pyserial>=3.5"]
+
+[project.optional-dependencies]
+web = ["flask>=3.0"]
+# Only needed where no command-line player (afplay, ffplay, mpg123) exists, e.g. Windows.
+sound = ["playsound==1.2.2"]
+dev = ["flask>=3.0", "pytest>=8.0"]
+
+[project.scripts]
+led-driver = "led_driver_rs485.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+led_driver_rs485 = ["assets/*.mp3", "web/templates/*.html", "web/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

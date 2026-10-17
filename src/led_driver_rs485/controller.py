@@ -1,102 +1,108 @@
+"""Serial transport for the RS485 LED driver board."""
+
+from __future__ import annotations
+
+import logging
+import time
+
 import serial
 import serial.tools.list_ports
-import struct
-import time
-from playsound import playsound
+from serial.tools.list_ports_common import ListPortInfo
+
+from . import protocol
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_ADDRESS = 0x01
+DEFAULT_BAUDRATE = 9600
+BAUDRATES = (9600, 19200, 38400, 57600, 115200)
+
+
+def scan_ports(usb_only: bool = True) -> list[ListPortInfo]:
+    """Available serial ports sorted by device name, optionally USB adapters only."""
+    ports = sorted(serial.tools.list_ports.comports(), key=lambda p: p.device)
+    if usb_only:
+        ports = [p for p in ports if "usb" in f"{p.description} {p.hwid}".lower()]
+    return ports
 
 
 class LEDController:
-    def __init__(self, port, baudrate=57600, timeout=1):
+    """One RS485 LED driver board behind a serial port.
+
+    Use it as a context manager so the port is always released::
+
+        with LEDController("/dev/ttyUSB0") as led:
+            led.display_number(DEFAULT_ADDRESS, 42)
+    """
+
+    def __init__(
+        self,
+        port: str,
+        baudrate: int = DEFAULT_BAUDRATE,
+        timeout: float = 1.0,
+        response_delay: float = 0.5,
+    ):
+        self.response_delay = response_delay
         self.ser = serial.Serial(
             port=port,
             baudrate=baudrate,
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
-            timeout=timeout
+            timeout=timeout,
         )
 
-    def crc16(self, data: bytes) -> bytes:
-        """Calculate CRC16 according to the provided C function."""
-        crc = 0
-        for byte in data:
-            crc ^= (byte << 8)
-            for _ in range(8):
-                if crc & 0x8000:
-                    crc = (crc << 1) ^ 0x1021
-                else:
-                    crc <<= 1
-                crc &= 0xFFFF
-        return struct.pack('>H', crc)
-
-    def build_command(self, address, command, payload=b''):
-        """Build full packet with CRC."""
-        packet = bytearray()
-        packet.append(0xFE)
-        length = 1 + 1 + 1 + 1 + len(payload) + 1  # addr + cmd + flags + format + data + end
-        packet.append(length)
-        packet.append(address)
-        packet.append(command)
-        packet.extend(payload)
-        packet.append(0xFF)
-        packet.extend(self.crc16(packet))
-        return packet
-
-    def send_command(self, address, command, payload=b''):
-        """Send command to the device (includes 500ms delay)."""
-        packet = self.build_command(address, command, payload)
-        self.ser.write(packet)
-        time.sleep(0.5)
-        return self.ser.read_all()
-
-    def display_content(self, address, flash=False, save=False,
-                        items=1, bytes_per_item=1, content_bytes=b''):
-        """Command 0x01: Display content on 7-segments.
-
-        bytes_per_item: number of data bytes per digit (usually 1).
-        items: number of digits to update.
-        content_bytes: raw data, length must equal items * bytes_per_item.
-        """
-        flags = (0x80 if flash else 0x00) | (0x40 if save else 0x00)
-        fmt = ((items & 0xF) << 4) | (bytes_per_item & 0xF)
-        payload = bytes([flags, fmt]) + content_bytes
-        return self.send_command(address, 0x01, payload)
-
-    def countdown(self, address, start_seconds: int, play_sound=True):
-        """Count down from start_seconds to 0, updating two 7-segment digits each second."""
-        for t in range(start_seconds, -1, -1):
-            tens = (t // 10) % 10
-            units = t % 10
-            # Send two digits, one byte each
-            self.display_content(
-                address=address,
-                flash=False,
-                save=False,
-                items=2,
-                bytes_per_item=1,
-                content_bytes=bytes([units, tens])
-            )
-            print(f"Timer: {t:02d}s")
-            # send_command already waits 0.5s, add 0.5s to complete 1s interval
-            time.sleep(0.5)
-            if t == 0 and play_sound:
-                playsound("alarm-clock-90867.mp3")
-
-    def close(self):
-        self.ser.close()
-
-    @staticmethod
-    def scan_ports(usb_only=True):
-        ports = list(serial.tools.list_ports.comports())
-        if usb_only:
-            ports = [p for p in ports if "USB" in p.description or "usb" in p.hwid.lower()]
-        return ports
-
     @classmethod
-    def from_port_list(cls, port_index=0, baudrate=57600, timeout=1, usb_only=True):
-        ports = cls.scan_ports(usb_only)
+    def from_port_list(cls, port_index: int = 0, *, usb_only: bool = True, **kwargs) -> LEDController:
+        """Open the ``port_index``-th port reported by :func:`scan_ports`."""
+        ports = scan_ports(usb_only)
         if not ports:
             raise RuntimeError("No serial ports found")
-        if port_index >= len(ports):
-            raise IndexError(f"Port index {port_index} out of range (0-{len(ports)-1})")
-        return cls(port=ports[port_index].device, baudrate=baudrate, timeout=timeout)
+        if not 0 <= port_index < len(ports):
+            raise IndexError(f"Port index {port_index} out of range (0-{len(ports) - 1})")
+        return cls(ports[port_index].device, **kwargs)
+
+    @property
+    def port(self) -> str:
+        return self.ser.port
+
+    def send_command(self, address: int, command: int, payload: bytes = b"") -> bytes:
+        """Send one frame and return whatever the board answers within ``response_delay``."""
+        frame = protocol.build_frame(address, command, payload)
+        self.ser.reset_input_buffer()  # stale bytes would otherwise show up in this reply
+        self.ser.write(frame)
+        self.ser.flush()
+        logger.debug("TX %s", frame.hex(" "))
+        time.sleep(self.response_delay)
+        response = self.ser.read_all()
+        logger.debug("RX %s", response.hex(" ") if response else "(nothing)")
+        return response
+
+    def display_content(
+        self,
+        address: int,
+        content: bytes,
+        *,
+        bytes_per_item: int = 1,
+        flash: bool = False,
+        save: bool = False,
+    ) -> bytes:
+        """Show raw item data (``bytes_per_item`` bytes per digit) on the display."""
+        payload = protocol.display_payload(content, bytes_per_item, flash=flash, save=save)
+        return self.send_command(address, protocol.CMD_DISPLAY, payload)
+
+    def display_number(
+        self, address: int, value: int, *, digits: int = 2, flash: bool = False, save: bool = False
+    ) -> bytes:
+        """Show a non-negative integer, one digit per item."""
+        content = protocol.number_to_digits(value, digits)
+        return self.display_content(address, content, flash=flash, save=save)
+
+    def close(self) -> None:
+        self.ser.close()
+
+    def __enter__(self) -> LEDController:
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        self.close()

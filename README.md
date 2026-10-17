@@ -1,93 +1,107 @@
 # LED Driver RS485
 
-A Python library for controlling LED displays via RS485 protocol.
+Python driver, command-line tool and web UI for a two-digit 7-segment LED
+display driven over RS485 (through a USB–RS485 adapter).
 
 ## Installation
 
 ```bash
-# Install the package in development mode
-pip install -e .
-
-# Install all dependencies including web app
-pip install -r requirements.txt
+pip install -e ".[web]"     # driver + CLI + web UI
+pip install -e ".[dev]"     # ...plus pytest, for development
 ```
 
-## Project Structure
+The alarm uses `afplay` on macOS and `ffplay` or `mpg123` on Linux. On other
+systems install the `sound` extra (`pip install -e ".[sound]"`).
 
-```
-led_driver_rs485/
-├── src/                    # Source code package
-│   └── led_driver_rs485/   # Main package
-│       ├── __init__.py     # Package initialization
-│       └── controller.py   # LED controller implementation
-├── tests/                  # Test directory
-│   ├── README.md           # Test documentation
-│   └── test_led_driver_rs485.py  # Unit tests
-├── web_app/                # Web application
-│   ├── app.py              # Flask application
-│   ├── templates/          # HTML templates
-│   └── static/             # Static files (CSS, JS)
-├── main.py                 # CLI script for running the application
-├── run_web_app.py          # Script to run the web application
-├── setup.py                # Package setup file
-├── requirements.txt        # Project dependencies
-└── README.md               # This file
-```
-
-## Usage
-
-### Command Line Interface
-
-#### List Available Ports
+## Command line
 
 ```bash
-python main.py list
+led-driver list                         # USB serial ports, numbered
+led-driver list --all                   # every serial port
+led-driver countdown -p 0 -s 10         # port by index from `list`
+led-driver countdown -p /dev/ttyUSB0 -s 30 -b 9600 --no-sound
+led-driver -v countdown -s 5            # log every frame sent and received
+led-driver serve                        # web UI on http://127.0.0.1:8080
 ```
 
-#### Run a Countdown
+`python -m led_driver_rs485 ...` works the same without the console script.
+
+`serve` listens on localhost only. To control the display from another machine
+use `led-driver serve --host 0.0.0.0` — anyone on the network can then drive it.
+
+## Web UI
+
+Pick the serial port, set the seconds (1–99) and baud rate, then select
+**Start countdown**. The on-screen display mirrors the physical one, and
+**Stop** ends the countdown early. The page polls the server, so reloading it
+or opening it in a second browser shows the countdown already in progress.
+
+JSON API:
+
+| Method | Path                   | Body / result                                           |
+| ------ | ---------------------- | ------------------------------------------------------- |
+| GET    | `/api/ports`           | `{"ports": [{"device", "description"}]}`                |
+| GET    | `/api/countdown`       | `{"status", "port", "seconds", "remaining", "error"}`   |
+| POST   | `/api/countdown`       | `{"port", "seconds", "baudrate"?, "play_sound"?}` → 202 |
+| POST   | `/api/countdown/stop`  | current state                                           |
+
+`status` is one of `idle`, `running`, `finished`, `stopped`, `error`. Errors
+come back as `{"error": "..."}` with a 4xx status; starting a countdown while
+one is running returns 409.
+
+## Library
+
+```python
+from led_driver_rs485 import DEFAULT_ADDRESS, LEDController, run_countdown
+
+with LEDController("/dev/ttyUSB0", baudrate=9600) as led:
+    led.display_number(DEFAULT_ADDRESS, 42)
+    led.display_content(DEFAULT_ADDRESS, bytes([2, 4]), flash=True)
+    run_countdown(led, 10, on_tick=print)
+```
+
+## Protocol
+
+Every frame is
+
+```
+0xFE | length | address | command | payload ... | 0xFF | CRC16 (big-endian)
+```
+
+- `length` — number of bytes from `0xFE` through `0xFF` (the frame without the CRC).
+- CRC — CRC-16/XMODEM (poly `0x1021`, init `0x0000`) over the same bytes.
+
+Command `0x01` (display) takes the payload `flags | format | data`:
+
+- `flags` — `0x80` flash, `0x40` save.
+- `format` — high nibble: number of digits; low nibble: bytes per digit.
+- `data` — the digit values, rightmost digit first.
+
+Showing `42` on board `0x01`: `FE 09 01 01 00 21 02 04 FF 3E 78`.
+
+## Layout
+
+```
+src/led_driver_rs485/
+├── protocol.py      frame building, CRC, payload encoding (no I/O)
+├── controller.py    LEDController: serial port transport, port scanning
+├── countdown.py     drift-free, stoppable countdown
+├── sound.py         alarm playback
+├── cli.py           `led-driver` command
+├── web/             Flask app, countdown service, page, CSS, JS
+└── assets/          alarm sound
+tests/               pytest suite; runs without hardware
+```
+
+## Tests
 
 ```bash
-python main.py countdown --port 0 --seconds 10 --baudrate 9600
-```
-
-Or with short options:
-
-```bash
-python main.py countdown -p 0 -s 10 -b 9600
-```
-
-### Web Application
-
-The project includes a web interface for controlling the LED display.
-
-#### Running the Web App
-
-```bash
-python run_web_app.py
-```
-
-Then open your browser and navigate to:
-
-```
-http://localhost:8080
-```
-
-The web interface allows you to:
-- Select from available USB serial ports
-- Set the countdown duration
-- Start the countdown with a button click
-- See the status of the countdown operation
-
-## Running Tests
-
-```bash
-# Install test dependencies
-pip install -r requirements.txt
-
-# Run tests
 pytest
 ```
 
+The serial port is mocked throughout, and frames are checked byte-for-byte
+against frames captured from the original driver.
+
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT

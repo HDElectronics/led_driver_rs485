@@ -1,0 +1,283 @@
+:root {
+  color-scheme: light;
+  --enclosure: #d5dade;   /* powder-coated case */
+  --panel: #eef1f3;       /* control surface */
+  --field: #ffffff;
+  --ink: #1b2227;
+  --ink-muted: #56626b;
+  --rule: #b6bfc6;
+  --bezel: #17191b;
+  --bezel-edge: #2c3034;
+  --led: #ff3b24;
+  --led-glow: rgb(255 59 36 / 0.55);
+  --led-off: #351f1d;
+  --ok: #2b7a4f;
+  --danger: #b42318;
+  --focus: #1f63d6;
+
+  --font-panel: "DIN Alternate", "Bahnschrift", "D-DIN", "Arial Narrow", system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --enclosure: #1c2125;
+    --panel: #262c31;
+    --field: #1d2226;
+    --ink: #e5e9ec;
+    --ink-muted: #9aa5ad;
+    --rule: #414b52;
+    --bezel: #0d0e0f;
+    --bezel-edge: #30353a;
+    --led-off: #2a1715;
+    --ok: #5cc28a;
+    --danger: #ff8a7a;
+    --focus: #79a6ff;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: clamp(1rem, 5vw, 3rem) 1rem;
+  background: var(--enclosure);
+  color: var(--ink);
+  font: 1rem/1.5 var(--font-body);
+}
+
+.console {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+}
+
+/* Header: title plus a status LED, like the power/activity light on a bench instrument. */
+
+.console-header {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+}
+
+h1 {
+  margin: 0;
+  font: 700 1.5rem/1.2 var(--font-panel);
+  letter-spacing: 0.01em;
+}
+
+.status {
+  --dot: var(--rule);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+
+.status::before {
+  content: "";
+  flex: none;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: var(--dot);
+}
+
+.status[data-state="running"]  { --dot: var(--led); color: var(--ink); }
+.status[data-state="finished"] { --dot: var(--ok); }
+.status[data-state="error"]    { --dot: var(--danger); color: var(--danger); }
+
+.status[data-state="running"]::before {
+  box-shadow: 0 0 6px var(--led-glow);
+}
+
+/* The display: the one loud element on the page. */
+
+.display {
+  display: flex;
+  justify-content: center;
+  gap: clamp(0.75rem, 4vw, 1.5rem);
+  padding: clamp(1.25rem, 6vw, 2.25rem) 1rem;
+  margin-bottom: 1.75rem;
+  background: var(--bezel);
+  border: 1px solid var(--bezel-edge);
+  border-radius: 8px;
+  box-shadow: inset 0 2px 10px rgb(0 0 0 / 0.6);
+}
+
+.digit {
+  width: clamp(4.5rem, 22vw, 7rem);
+  height: auto;
+  overflow: visible;
+  transform: skewX(-6deg);
+}
+
+.digit polygon {
+  fill: var(--led-off);
+  transition: fill 90ms linear;
+}
+
+.digit polygon.is-lit {
+  fill: var(--led);
+  filter: drop-shadow(0 0 4px var(--led-glow));
+}
+
+/* Reaching zero flashes the digits, as the panel's flash flag would. */
+.display[data-state="finished"] polygon.is-lit {
+  animation: flash 1s steps(1, end) 3;
+}
+
+@keyframes flash {
+  50% { fill: var(--led-off); filter: none; }
+}
+
+/* Controls */
+
+.controls {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.field-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.field-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+label {
+  font: 700 0.9375rem/1.3 var(--font-panel);
+  letter-spacing: 0.01em;
+}
+
+select,
+input[type="number"] {
+  width: 100%;
+  height: 2.75rem;
+  padding: 0 0.75rem;
+  background: var(--field);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.hint {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+}
+
+.hint:empty {
+  display: none;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font: 400 1rem/1.4 var(--font-body);
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+}
+
+.button {
+  height: 2.75rem;
+  padding: 0 1.25rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: 700 1rem/1 var(--font-panel);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.button-primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--panel);
+}
+
+.button-stop {
+  color: var(--danger);
+  border-color: currentColor;
+}
+
+.button:disabled,
+select:disabled,
+input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.message {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--danger);
+  background: var(--field);
+  color: var(--danger);
+  border-radius: 0 6px 6px 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 26rem) {
+  .field-pair,
+  .actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .digit polygon {
+    transition: none;
+  }
+
+  .display[data-state="finished"] polygon.is-lit {
+    animation: none;
+  }
+}

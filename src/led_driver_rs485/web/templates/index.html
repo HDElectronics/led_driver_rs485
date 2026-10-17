@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LED countdown</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <main class="console">
+    <header class="console-header">
+      <h1>LED countdown</h1>
+      <p class="status" id="status" data-state="idle" role="status" aria-live="polite">Ready</p>
+    </header>
+
+    {# Mirrors the physical two-digit panel; segments follow the standard a–g layout. #}
+    <div class="display" id="display" data-state="idle" role="img" aria-label="Display shows 10">
+      {% for _ in range(2) %}
+      <svg class="digit" viewBox="-2 -2 64 104" aria-hidden="true">
+        <polygon data-segment="a" points="6.5,5 11.5,0 48.5,0 53.5,5 48.5,10 11.5,10"/>
+        <polygon data-segment="b" points="55,6.5 60,11.5 60,43.5 55,48.5 50,43.5 50,11.5"/>
+        <polygon data-segment="c" points="55,51.5 60,56.5 60,88.5 55,93.5 50,88.5 50,56.5"/>
+        <polygon data-segment="d" points="6.5,95 11.5,90 48.5,90 53.5,95 48.5,100 11.5,100"/>
+        <polygon data-segment="e" points="5,51.5 10,56.5 10,88.5 5,93.5 0,88.5 0,56.5"/>
+        <polygon data-segment="f" points="5,6.5 10,11.5 10,43.5 5,48.5 0,43.5 0,11.5"/>
+        <polygon data-segment="g" points="6.5,50 11.5,45 48.5,45 53.5,50 48.5,55 11.5,55"/>
+      </svg>
+      {% endfor %}
+    </div>
+
+    <form class="controls" id="countdown-form">
+      <div class="field">
+        <label for="port">Serial port</label>
+        <div class="field-row">
+          <select id="port" name="port" required aria-describedby="port-hint"></select>
+          <button type="button" class="button button-quiet" id="refresh-ports">Refresh</button>
+        </div>
+        <p class="hint" id="port-hint">Looking for USB serial adapters…</p>
+      </div>
+
+      <div class="field-pair">
+        <div class="field">
+          <label for="seconds">Seconds</label>
+          <input id="seconds" name="seconds" type="number" inputmode="numeric"
+                 min="{{ min_seconds }}" max="{{ max_seconds }}" step="1" value="10" required>
+        </div>
+        <div class="field">
+          <label for="baudrate">Baud rate</label>
+          <select id="baudrate" name="baudrate">
+            {% for rate in baudrates %}
+            <option value="{{ rate }}"{% if rate == default_baudrate %} selected{% endif %}>{{ rate }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <label class="toggle">
+        <input id="play-sound" name="play_sound" type="checkbox" checked>
+        Play the alarm at zero
+      </label>
+
+      <div class="actions">
+        <button type="submit" class="button button-primary" id="start">Start countdown</button>
+        <button type="button" class="button button-stop" id="stop" disabled>Stop</button>
+      </div>
+
+      <p class="message" id="message" role="alert" hidden></p>
+    </form>
+  </main>
+</body>
+</html>
